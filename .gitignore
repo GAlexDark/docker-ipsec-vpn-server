@@ -1,1 +1,3 @@
 vpn.env
+.env
+*.code-workspace

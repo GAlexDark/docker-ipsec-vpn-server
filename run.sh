@@ -19,6 +19,8 @@
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
+echo 'Starting configure container...'
+
 exiterr()  { echo "Error: $1" >&2; exit 1; }
 nospaces() { printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
 onespace() { printf '%s' "$1" | tr -s ' '; }
@@ -362,6 +364,7 @@ EOF
 fi
 
 # Create IPsec config
+
 cat > /etc/ipsec.conf <<EOF
 version 2.0
 
@@ -397,6 +400,7 @@ conn l2tp-psk
   leftprotoport=17/1701
   rightprotoport=17/%any
   type=transport
+  phase2=esp
   also=shared
 
 EOF
@@ -443,8 +447,8 @@ port = 1701
 [lns default]
 ip range = $L2TP_POOL
 local ip = $L2TP_LOCAL
-require chap = yes
-refuse pap = yes
+;require chap = yes
+;refuse pap = yes
 require authentication = yes
 name = l2tpd
 pppoptfile = /etc/ppp/options.xl2tpd
@@ -453,7 +457,8 @@ EOF
 
 # Set xl2tpd options
 cat > /etc/ppp/options.xl2tpd <<EOF
-+mschap-v2
+#+mschap-v2
+require-mschap-v2
 ipcp-accept-local
 ipcp-accept-remote
 noccp
