@@ -6,12 +6,13 @@ networks:
     name: vpn_bridge
     driver_opts:
       com.docker.network.bridge.name: br-vpn
+      com.docker.network.endpoint.sysctls: |
+        net.ipv4.conf.all.rp_filter=0
+        net.ipv4.conf.all.send_redirects=0
 
 services:
   vpn:
     image: hwdsl2/ipsec-vpn-server
-#    build:
-#      context: .
     restart: always
     env_file:
       - ./vpn.env
@@ -30,8 +31,6 @@ services:
       - net.ipv4.conf.default.accept_redirects=0
       - net.ipv4.conf.default.send_redirects=0
       - net.ipv4.conf.default.rp_filter=0
-      - net.ipv4.conf.eth0.send_redirects=0
-      - net.ipv4.conf.eth0.rp_filter=0
     deploy:
       resources:
         limits:
@@ -45,4 +44,3 @@ services:
       - /lib/modules:/lib/modules:ro
     networks:
       - vpn_bridge
-      
