@@ -12,7 +12,7 @@ networks:
 
 services:
   vpn:
-    image: hwdsl2/ipsec-vpn-server
+    image: docrepo.galexsoftware.info/ipsec-vpn-server:v1.0.0-arm64
     restart: always
     env_file:
       - ./vpn.env

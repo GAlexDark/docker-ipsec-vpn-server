@@ -385,12 +385,13 @@ cat > /etc/ipsec.conf <<EOF
 version 2.0
 
 config setup
+  ikev1-policy=accept
   virtual-private=%v4:10.0.0.0/8,%v4:192.168.0.0/16,%v4:172.16.0.0/12,%v4:!$L2TP_NET,%v4:!$XAUTH_NET
   uniqueids=no
 
 conn shared
   left=%defaultroute
-  leftid=$public_ip
+  leftid=$server_addr
   right=%any
   encapsulation=yes
   authby=secret
@@ -416,7 +417,6 @@ conn l2tp-psk
   leftprotoport=17/1701
   rightprotoport=17/%any
   type=transport
-  phase2=esp
   also=shared
 
 EOF
@@ -463,8 +463,8 @@ port = 1701
 [lns default]
 ip range = $L2TP_POOL
 local ip = $L2TP_LOCAL
-;require chap = yes
-;refuse pap = yes
+refuse pap = yes
+refuse chap = yes
 require authentication = yes
 name = l2tpd
 pppoptfile = /etc/ppp/options.xl2tpd
@@ -473,8 +473,10 @@ EOF
 
 # Set xl2tpd options
 cat > /etc/ppp/options.xl2tpd <<EOF
-#+mschap-v2
 require-mschap-v2
+refuse-pap
+refuse-chap
+refuse-mschap
 ipcp-accept-local
 ipcp-accept-remote
 noccp

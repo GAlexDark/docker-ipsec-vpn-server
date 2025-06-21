@@ -7,22 +7,24 @@
 # Attribution required: please include my name in any derivative and let me
 # know how you have improved it!
 
-FROM alpine:3.21
+ARG ALPINE_TAG=3.22.0
+
+FROM alpine:${ALPINE_TAG}
 
 ENV SWAN_VER=5.2
 WORKDIR /opt/src
 
 RUN set -x \
     && apk add --no-cache \
-         bash bind-tools coreutils openssl uuidgen wget xl2tpd iptables iptables-legacy \
+         bash bind-tools coreutils openssl uuidgen curl xl2tpd iptables iptables-legacy \
          iproute2 libcap-ng libcurl libevent linux-pam musl nspr nss nss-tools openrc \
          bison flex gcc make libc-dev bsd-compat-headers linux-pam-dev \
          nss-dev libcap-ng-dev libevent-dev curl-dev nspr-dev \
     && cd /sbin \
     && for fn in iptables iptables-save iptables-restore; do ln -fs xtables-legacy-multi "$fn"; done \
     && cd /opt/src \
-    && wget -t 3 -T 30 -nv -O libreswan.tar.gz "https://github.com/libreswan/libreswan/archive/v${SWAN_VER}.tar.gz" \
-    || wget -t 3 -T 30 -nv -O libreswan.tar.gz "https://download.libreswan.org/libreswan-${SWAN_VER}.tar.gz" \
+    && curl -fsSL --retry 3 --connect-timeout 30 -o /opt/src/libreswan.tar.gz "https://github.com/libreswan/libreswan/archive/v${SWAN_VER}.tar.gz" \
+    || curl -fsSL --retry 3 --connect-timeout 30 -o /opt/src/libreswan.tar.gz "https://download.libreswan.org/libreswan-${SWAN_VER}.tar.gz" \
     && tar xzf libreswan.tar.gz \
     && rm -f libreswan.tar.gz \
     && cd "libreswan-${SWAN_VER}" \
@@ -36,14 +38,16 @@ RUN set -x \
     && rm -rf "/opt/src/libreswan-${SWAN_VER}" \
     && apk del --no-cache \
          bison flex gcc make libc-dev bsd-compat-headers linux-pam-dev \
-         nss-dev libcap-ng-dev libevent-dev curl-dev nspr-dev
+         nss-dev libcap-ng-dev libevent-dev curl-dev nspr-dev \
+    && rm -rf /root/.cache /tmp/* /var/cache/* /var/tmp/*
 
-RUN wget -t 3 -T 30 -nv -O /opt/src/ikev2.sh https://github.com/hwdsl2/setup-ipsec-vpn/raw/909bf12175252e2e167c36c3b12d174c01f0824f/extras/ikev2setup.sh \
+RUN curl -fsSL --retry 3 --connect-timeout 30 -o /opt/src/ikev2.sh \
+    https://github.com/hwdsl2/setup-ipsec-vpn/raw/909bf12175252e2e167c36c3b12d174c01f0824f/extras/ikev2setup.sh \
     && chmod +x /opt/src/ikev2.sh \
     && ln -s /opt/src/ikev2.sh /usr/bin
 
-COPY ./run.sh /opt/src/run.sh
-RUN chmod 755 /opt/src/run.sh
+COPY --chmod=755 ./run.sh /opt/src/run.sh
+
 EXPOSE 500/udp 4500/udp
 CMD ["/opt/src/run.sh"]
 

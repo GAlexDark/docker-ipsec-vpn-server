@@ -1,0 +1,54 @@
+ARG ALPINE_TAG=3.22.0
+
+# Builder stage
+FROM alpine:${ALPINE_TAG} AS builder
+
+ENV SWAN_VER=5.2
+WORKDIR /opt/src
+
+RUN apk add --no-cache \
+      bash bind-tools coreutils openssl uuidgen curl xl2tpd iptables iptables-legacy \
+      iproute2 libcap-ng libcurl libevent linux-pam musl nspr nss nss-tools openrc \
+      bison flex gcc make libc-dev bsd-compat-headers linux-pam-dev \
+      nss-dev libcap-ng-dev libevent-dev curl-dev nspr-dev \
+    && cd /sbin \
+    && for fn in iptables iptables-save iptables-restore; do ln -fs xtables-legacy-multi "$fn"; done \
+    && cd /opt/src \
+    && curl -fsSL --retry 3 --connect-timeout 30 -o /opt/src/libreswan.tar.gz "https://github.com/libreswan/libreswan/archive/v${SWAN_VER}.tar.gz" \
+    || curl -fsSL --retry 3 --connect-timeout 30 -o /opt/src/libreswan.tar.gz "https://download.libreswan.org/libreswan-${SWAN_VER}.tar.gz" \
+    && tar xzf libreswan.tar.gz \
+    && rm -f libreswan.tar.gz \
+    && cd "libreswan-${SWAN_VER}" \
+    && printf 'WERROR_CFLAGS=-w -s\nUSE_DNSSEC=false\nUSE_DH2=true\n' > Makefile.inc.local \
+    && printf 'FINALNSSDIR=/etc/ipsec.d\nNSSDIR=/etc/ipsec.d\n' >> Makefile.inc.local \
+    && make -s base \
+    && make -s install-base
+
+# Final image
+FROM alpine:${ALPINE_TAG}
+
+WORKDIR /opt/src
+
+RUN apk add --no-cache \
+      bash bind-tools coreutils openssl uuidgen curl xl2tpd iptables iptables-legacy \
+      iproute2 libcap-ng libcurl libevent linux-pam musl nspr nss nss-tools openrc
+
+# Copy only the built Libreswan binaries and required files
+COPY --from=builder /usr/local /usr/local
+COPY --from=builder /etc/ipsec.d /etc/ipsec.d
+
+# Set up iptables legacy symlinks
+RUN cd /sbin \
+    && for fn in iptables iptables-save iptables-restore; do ln -fs xtables-legacy-multi "$fn"; done \
+    && mkdir -p /run/openrc \
+    && touch /run/openrc/softlevel
+
+RUN curl -fsSL --retry 3 --connect-timeout 30 -o /opt/src/ikev2.sh \
+    https://github.com/hwdsl2/setup-ipsec-vpn/raw/909bf12175252e2e167c36c3b12d174c01f0824f/extras/ikev2setup.sh \
+    && chmod +x /opt/src/ikev2.sh \
+    && ln -s /opt/src/ikev2.sh /usr/bin
+
+COPY --chmod=755 ./run.sh /opt/src/run.sh
+
+EXPOSE 500/udp 4500/udp
+CMD ["/opt/src/run.sh"]
